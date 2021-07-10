@@ -62,7 +62,7 @@ RUN chown -R www-data:www-data /var/log/supervisor/ &&\
   chown -R www-data:www-data /etc/nginx/
 
 # Cronjob
-COPY scheduler.sh /
+COPY .docker/scheduler.sh /
 RUN chmod 755 /scheduler.sh
 
 CMD ["/bin/bash", "./.docker/entrypoint.sh"]
