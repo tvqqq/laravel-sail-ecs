@@ -39,7 +39,7 @@ RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
 RUN rm -f /etc/nginx/nginx.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 ADD . /var/www/app
-ADD ./docker/nginx /etc/nginx
+ADD ./.docker/nginx /etc/nginx
 
 WORKDIR /var/www/app
 
@@ -47,18 +47,18 @@ RUN chown -R www-data:www-data /var/www/app
 
 RUN mkdir /run/php
 
-COPY docker/php/laravel.conf /etc/php/${PHP_VERSION}/fpm/pool.d/laravel.conf
-COPY docker/php/php${PHP_VERSION}.ini /etc/php/${PHP_VERSION}/fpm/php.ini
+COPY .docker/php/laravel.conf /etc/php/${PHP_VERSION}/fpm/pool.d/laravel.conf
+COPY .docker/php/php${PHP_VERSION}.ini /etc/php/${PHP_VERSION}/fpm/php.ini
 
 RUN rm /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
 
 RUN sed -i -e 's/;daemonize = yes/daemonize = no/g' /etc/php/${PHP_VERSION}/fpm/php-fpm.conf
 
-COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY .docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 RUN sed -i "s/#PHP_VERSION#/${PHP_VERSION}/g" /etc/supervisor/conf.d/supervisord.conf
 
 RUN chown -R www-data:www-data /var/log/supervisor/ &&\
   chown -R www-data:www-data /etc/nginx/
 
-CMD ["/bin/bash", "./docker/entrypoint.sh"]
+CMD ["/bin/bash", "./.docker/entrypoint.sh"]
