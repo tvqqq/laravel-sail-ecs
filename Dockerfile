@@ -61,4 +61,8 @@ RUN sed -i "s/#PHP_VERSION#/${PHP_VERSION}/g" /etc/supervisor/conf.d/supervisord
 RUN chown -R www-data:www-data /var/log/supervisor/ &&\
   chown -R www-data:www-data /etc/nginx/
 
+# Cronjob
+COPY scheduler.sh /
+RUN chmod 755 /scheduler.sh
+
 CMD ["/bin/bash", "./.docker/entrypoint.sh"]
