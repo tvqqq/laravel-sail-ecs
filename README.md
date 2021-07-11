@@ -36,8 +36,9 @@
 3. Create a bucket via AWS console to upload production .env file (file name should be your_app.env, eg: laravel-ecs-test.env)
 
 4. Fill your parameters in `cfn_parameters.json` then create stack from `cloudformation.yml`.
+
 ```
-aws cloudformation create-stack \                                                                         ✘ 254  qeoqeo
+aws cloudformation create-stack \
 --stack-name test-larsailecs \
 --template-body file://cloudformation.yml \
 --parameters file://cfn_parameters.json
@@ -46,8 +47,9 @@ aws cloudformation create-stack \                                               
 5. Push your code to branch `main` and boom 🚀.
 
 6. When you make some updates on CloudFormation, please `update-stack`
+
 ```
-aws cloudformation create-stack \                                                                         ✘ 254  qeoqeo
+aws cloudformation create-stack \
 --stack-name test-larsailecs \
 --template-body file://cloudformation.yml \
 --parameters file://cfn_parameters.json

@@ -14,7 +14,7 @@ Resources:
       RepositoryName: !Ref AppName
       LifecyclePolicy:
         LifecyclePolicyText: |
-          {"rules":[{"rulePriority":1,"description":"Remove untagged images","selection":{"tagStatus":"untagged","countType":"imageCountMoreThan","countNumber":1},"action":{"type":"expire"}},{"rulePriority":2,"description":"Delete old images","selection":{"tagStatus":"any","countType":"sinceImagePushed","countUnit":"days","countNumber":1},"action":{"type":"expire"}}]}
+          {"rules":[{"rulePriority":1,"description":"Remove untagged images","selection":{"tagStatus":"untagged","countType":"imageCountMoreThan","countNumber":1},"action":{"type":"expire"}}]}
 
   # ECS
   # Cluster
