@@ -47,7 +47,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/${{ env.APP_NAME }}:$IMAGE_TAG .
+          docker build -f docker/ecs/Dockerfile -t $ECR_REGISTRY/${{ env.APP_NAME }}:$IMAGE_TAG .
           docker push $ECR_REGISTRY/${{ env.APP_NAME }}:$IMAGE_TAG
 
       - name: Download task def
