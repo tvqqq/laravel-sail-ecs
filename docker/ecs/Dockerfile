@@ -46,7 +46,7 @@ RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
 RUN rm -f /etc/nginx/nginx.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 ADD . /var/www/app
-ADD .docker/nginx /etc/nginx
+ADD ./docker/ecs/.docker/nginx /etc/nginx
 
 WORKDIR /var/www/app
 
@@ -72,4 +72,4 @@ RUN chown -R www-data:www-data /var/log/supervisor/ &&\
 COPY .docker/scheduler.sh /
 RUN chmod 755 /scheduler.sh
 
-CMD ["/bin/bash", ".docker/entrypoint.sh"]
+CMD ["/bin/bash", "./docker/ecs/.docker/entrypoint.sh"]
