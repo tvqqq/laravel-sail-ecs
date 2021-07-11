@@ -9,9 +9,10 @@ ENV TZ=Asia/Ho_Chi_Minh
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 ARG PHP_VERSION=8.0
-ARG PATH_DOCKER_ECS="./docker/ecs/.docker"
-
 ENV PHP_VERSION ${PHP_VERSION}
+
+ARG PATH_DOCKER_ECS="./docker/ecs/.docker"
+ENV PATH_DOCKER_ECS ${PATH_DOCKER_ECS}
 
 RUN apt-get update && \
   apt-get -y upgrade && \
