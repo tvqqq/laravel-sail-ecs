@@ -9,6 +9,7 @@ ENV TZ=Asia/Ho_Chi_Minh
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 ARG PHP_VERSION=8.0
+ARG PATH_DOCKER_ECS="./docker/ecs/.docker"
 
 ENV PHP_VERSION ${PHP_VERSION}
 
@@ -46,7 +47,7 @@ RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
 RUN rm -f /etc/nginx/nginx.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 ADD . /var/www/app
-ADD ./docker/ecs/.docker/nginx /etc/nginx
+ADD ${PATH_DOCKER_ECS}/nginx /etc/nginx
 
 WORKDIR /var/www/app
 
@@ -54,14 +55,14 @@ RUN chown -R www-data:www-data /var/www/app
 
 RUN mkdir /run/php
 
-COPY .docker/php/laravel.conf /etc/php/${PHP_VERSION}/fpm/pool.d/laravel.conf
-COPY .docker/php/php${PHP_VERSION}.ini /etc/php/${PHP_VERSION}/fpm/php.ini
+COPY ${PATH_DOCKER_ECS}/php/laravel.conf /etc/php/${PHP_VERSION}/fpm/pool.d/laravel.conf
+COPY ${PATH_DOCKER_ECS}/php/php${PHP_VERSION}.ini /etc/php/${PHP_VERSION}/fpm/php.ini
 
 RUN rm /etc/php/${PHP_VERSION}/fpm/pool.d/www.conf
 
 RUN sed -i -e 's/;daemonize = yes/daemonize = no/g' /etc/php/${PHP_VERSION}/fpm/php-fpm.conf
 
-COPY .docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ${PATH_DOCKER_ECS}/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 RUN sed -i "s/#PHP_VERSION#/${PHP_VERSION}/g" /etc/supervisor/conf.d/supervisord.conf
 
@@ -69,7 +70,7 @@ RUN chown -R www-data:www-data /var/log/supervisor/ &&\
   chown -R www-data:www-data /etc/nginx/
 
 # Cronjob
-COPY .docker/scheduler.sh /
+COPY ${PATH_DOCKER_ECS}/scheduler.sh /
 RUN chmod 755 /scheduler.sh
 
-CMD ["/bin/bash", "./docker/ecs/.docker/entrypoint.sh"]
+CMD ["/bin/bash", "${PATH_DOCKER_ECS}/entrypoint.sh"]
