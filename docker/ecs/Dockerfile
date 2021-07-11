@@ -74,4 +74,4 @@ RUN chown -R www-data:www-data /var/log/supervisor/ &&\
 COPY ${PATH_DOCKER_ECS}/scheduler.sh /
 RUN chmod 755 /scheduler.sh
 
-CMD ["/bin/bash", "${PATH_DOCKER_ECS}/entrypoint.sh"]
+CMD ["/bin/bash", "./docker/ecs/.docker/entrypoint.sh"]
