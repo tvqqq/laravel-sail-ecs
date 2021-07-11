@@ -1,5 +1,12 @@
-FROM ubuntu:18.04
+# Dockerfile for ECS production deployment 🚀
+FROM ubuntu:21.04
+
+LABEL maintainer="TVQ"
+
 ENV DEBIAN_FRONTEND noninteractive
+ENV TZ=Asia/Ho_Chi_Minh
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 ARG PHP_VERSION=8.0
 

@@ -6,6 +6,11 @@
 
 1. Update the **Local port** in `.env`
 
+2. Enable XDebug
+- Set `SAIL_XDEBUG=true`
+- Run `sail build --no-cache`
+- Check `sail php -v`
+
 ### Expose the URL to Internet
 
 1. Just need **HTTP**: `sail share` (30 mins)
