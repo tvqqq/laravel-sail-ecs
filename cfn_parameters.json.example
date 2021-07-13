@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "ServiceTaskDesiredCount",
+    "ParameterValue": "0"
+  },
+  {
+    "ParameterKey": "EnvS3Bucket",
+    "ParameterValue": "laravel-ecs-sail-envs"
+  },
+  {
+    "ParameterKey": "KeyName",
+    "ParameterValue": "laravel-ecs-sail"
+  },
+  {
+    "ParameterKey": "CertificateArn",
+    "ParameterValue": "arn:aws:acm:ap-southeast-1:323624124496:certificate/51044a75-8c3a-44f5-9e10-79745581859c"
+  },
+  {
+    "ParameterKey": "DbMasterUsername",
+    "ParameterValue": "admin"
+  },
+  {
+    "ParameterKey": "DbMasterPassword",
+    "ParameterValue": "As3cr3tp4D"
+  }
+]

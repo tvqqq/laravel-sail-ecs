@@ -4,16 +4,16 @@ Description: CFN Template for a Laravel Sail ECS application.
 Parameters:
   EnvS3Bucket:
     Type: String
-    Description: Your S3 bucket name contains env file
-    Default: ''
+    Description: Your S3 bucket name contains env file.
+    Default: ""
   CertificateArn:
     Type: String
-    Description: Certificate ARN
-    Default: ''
+    Description: Certificate ARN.
+    Default: ""
   KeyName:
     Type: String
-    Description: SSH Key Name
-    Default: ''
+    Description: SSH Key Name.
+    Default: ""
   ServiceTaskDesiredCount:
     Type: Number
     Description: Specifies the number of task to launch. 0 is for initial phrase.
@@ -24,10 +24,18 @@ Parameters:
       Specifies a comma-separated list of 3 VPC Availability Zones for
       the creation of new subnets. These zones must have the available status.
     Default: "ap-southeast-1a,ap-southeast-1b"
+  DbMasterUsername:
+    Type: String
+    Description: The master user name for the DB instance.
+  DbMasterPassword:
+    Type: String
+    Description: >
+      The password for the master user.
+      The password can include any printable ASCII character except "/", """, or "@".
 
 Conditions:
-  CreateHttpsListener: !Not [!Equals [!Ref CertificateArn, '']]
-  HasKeyName: !Not [!Equals [!Ref KeyName, '']]
+  CreateHttpsListener: !Not [!Equals [!Ref CertificateArn, ""]]
+  HasKeyName: !Not [!Equals [!Ref KeyName, ""]]
 
 Resources:
   # ECR Private Repository
@@ -56,7 +64,8 @@ Resources:
       Family: !Sub "${AWS::StackName}-task-definition"
       ContainerDefinitions:
         - Name: !Sub "${AWS::StackName}-container"
-          Image: !Join [ ":", [ !GetAtt EcrPrivateRepository.RepositoryUri, "main" ] ]
+          Image:
+            !Join [":", [!GetAtt EcrPrivateRepository.RepositoryUri, "main"]]
           PortMappings:
             - ContainerPort: 80
               HostPort: 0
@@ -237,6 +246,10 @@ Resources:
           FromPort: 0
           ToPort: 65535
           SourceSecurityGroupId: !Ref AlbSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 6379 # Redis port
+          ToPort: 6379
+          CidrIp: 0.0.0.0/0
 
   EcsInstanceLc:
     Type: AWS::AutoScaling::LaunchConfiguration
@@ -245,7 +258,7 @@ Resources:
       InstanceType: "t2.micro"
       AssociatePublicIpAddress: true
       IamInstanceProfile: !Ref Ec2InstanceProfile
-      KeyName: !If [ HasKeyName, !Ref KeyName, !Ref "AWS::NoValue" ]
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref "AWS::NoValue"]
       SecurityGroups:
         - !Ref Ec2SecurityGroup
       BlockDeviceMappings:
@@ -337,7 +350,7 @@ Resources:
     Properties:
       VpcId: !Ref TheVpc
       CidrBlock: 10.0.0.0/24
-      AvailabilityZone: !Select [ 0, !Ref VpcAvailabilityZones ]
+      AvailabilityZone: !Select [0, !Ref VpcAvailabilityZones]
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -347,7 +360,7 @@ Resources:
     Properties:
       VpcId: !Ref TheVpc
       CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Select [ 1, !Ref VpcAvailabilityZones ]
+      AvailabilityZone: !Select [1, !Ref VpcAvailabilityZones]
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
@@ -388,15 +401,111 @@ Resources:
       SubnetId: !Ref Subnet2
       RouteTableId: !Ref RouteViaIgw
 
-  # TODO: S3
+  # S3
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "bucket-${AWS::StackName}"
+      AccessControl: PublicRead
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+            AllowedOrigins:
+              - '*'
+            ExposedHeaders:
+              - Date
+            Id: myCORSRuleId1
+            MaxAge: 3600
+      
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - s3:GetObject
+            Effect: Allow
+            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+            Principal: '*'
+            # Condition:
+            #   StringLike:
+            #     'aws:Referer':
+            #       - 'http://www.example.com/*'
+            #       - 'http://example.net/*'
+            # TODO: only get from specific domain
 
-  # TODO: RDS
+  # RDS
+  RdsDbInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Ref AWS::StackName
+      DBInstanceClass: "db.t2.micro"
+      Engine: mysql
+      MasterUsername: !Ref DbMasterUsername
+      MasterUserPassword: !Ref DbMasterPassword
+      AllocatedStorage: 20
+      DBSubnetGroupName: !Ref RdsDBSubnetGroup
+      DBSecurityGroups:
+        - !Ref RdsDbSecurityGroup
 
-  # TODO: Redis
+  RdsDbSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      GroupDescription: !Sub "DB Security group for ${AWS::StackName}"
+      EC2VpcId: !Ref TheVpc
+      DBSecurityGroupIngress:
+        - EC2SecurityGroupId: !GetAtt Ec2SecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: !Sub "RDS ${AWS::StackName}"
 
-  # TODO: SQS
+  RdsDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: !Sub "DB Subnet group for ${AWS::StackName}"
+      SubnetIds:
+        - !Ref Subnet1
+        - !Ref Subnet2
+
+  # Redis
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      ClusterName: !Ref AWS::StackName
+      CacheNodeType: "cache.t2.micro"
+      Engine: redis
+      NumCacheNodes: 1
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref Ec2SecurityGroup
+
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      CacheSubnetGroupName: !Sub "redis-${AWS::StackName}"
+      Description: !Sub "Redis Subnet group for ${AWS::StackName}"
+      SubnetIds:
+        - !Ref Subnet1
+        - !Ref Subnet2
 
 Outputs:
-  AlbUrl:
-    Description: The main url for your app
+  AppUrl:
+    Description: The main url for your app behind load balancer.
     Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+  DatabaseUrl:
+    Description: The connection endpoint for the database.
+    Value: !GetAtt RdsDbInstance.Endpoint.Address
+
+  RedisUrl:
+    Description: The DNS address of the configuration endpoint for the Redis cache cluster.
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address
+
+  S3BucketName:
+    Description: The S3 bucket name.
+    Value: !Ref S3Bucket

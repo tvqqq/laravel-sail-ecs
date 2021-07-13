@@ -37,7 +37,7 @@
 
     **NOTE:** file name must be `your-app-name.env`, eg: `laravel-sail-ecs.env`.
 
-4. Update your own parameters in `cfn_parameters.json` then create stack from `cloudformation.yml`.
+4. Copy `cfn_parameters.json.example` to `cfn_parameters.json`. Update your own parameters in `cfn_parameters.json` then create stack from `cloudformation.yml`.
 
     **NOTE:** keep `ServiceTaskDesiredCount = 0` as initial.
 
