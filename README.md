@@ -4,9 +4,9 @@
 
 ### ENV configuration
 
-1. Update the **Local port** in `.env`
+1. Update the **Local port** in `.env`.
 
-2. Enable XDebug
+2. Enable XDebug.
 
 -   Set `SAIL_XDEBUG=true`
 -   Run `sail build --no-cache`
@@ -14,15 +14,15 @@
 
 ### Expose the URL to Internet
 
-1. Just need **HTTP**: `sail share` (30 mins)
+1. Just need **HTTP**: `sail share` (30 mins).
 
-2. **HTTPS**: use `ngrok http --region=ap 81` (120 mins and [ngrok](https://ngrok.com) makes life much easier)
+2. **HTTPS**: use `ngrok http --region=ap 81` (120 mins and [ngrok](https://ngrok.com) makes life much easier).
 
 ### Command line
 
-1. Open `.zshrc`, add `alias sail="./vendor/bin/sail"`
+1. Open `.zshrc`, add `alias sail="./vendor/bin/sail"`.
 
-2. Replace `php` by `sail`, eg: `sail artisan queue:work`
+2. Replace `php` by `sail`, eg: `sail artisan queue:work`.
 
 ## Production (ECS)
 
@@ -33,24 +33,32 @@
 
 2. Add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` into Github repository > Settings > Secrets.
 
-3. Create a bucket via AWS console to upload production .env file (file name should be your_app.env, eg: laravel-ecs-test.env)
+3. Create a bucket via AWS console and upload your production .env file.
 
-4. Fill your parameters in `cfn_parameters.json` then create stack from `cloudformation.yml`.
+    **NOTE:** file name must be `your-app-name.env`, eg: `laravel-sail-ecs.env`.
 
-```
-aws cloudformation create-stack \
---stack-name test-larsailecs \
---template-body file://cloudformation.yml \
---parameters file://cfn_parameters.json
-```
+4. Update your own parameters in `cfn_parameters.json` then create stack from `cloudformation.yml`.
 
-5. Push your code to branch `main` and boom 🚀.
+    **NOTE:** keep `ServiceTaskDesiredCount = 0` as initial.
 
-6. When you make some updates on CloudFormation, please `update-stack`
+    ```
+    aws cloudformation create-stack \
+    --stack-name laravel-sail-ecs \
+    --template-body file://cloudformation.yml \
+    --parameters file://cfn_parameters.json \
+    --capabilities CAPABILITY_NAMED_IAM
+    ```
 
-```
-aws cloudformation create-stack \
---stack-name test-larsailecs \
---template-body file://cloudformation.yml \
---parameters file://cfn_parameters.json
-```
+5. Push your code to branch `main`.
+
+6. Change `ServiceTaskDesiredCount = 0` into `ServiceTaskDesiredCount = 1` in file `cfn_parameters.json`.
+
+7. Run this command to `update-stack` on CloudFormation.
+
+    ```
+    aws cloudformation update-stack \
+    --stack-name laravel-sail-ecs \
+    --template-body file://cloudformation.yml \
+    --parameters file://cfn_parameters.json \
+    --capabilities CAPABILITY_NAMED_IAM
+    ```

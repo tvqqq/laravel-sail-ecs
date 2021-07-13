@@ -1,6 +1,18 @@
 [
   {
-    "ParameterKey": "AppName",
-    "ParameterValue": "test-larsailecs"
+    "ParameterKey": "ServiceTaskDesiredCount",
+    "ParameterValue": "0"
+  },
+  {
+    "ParameterKey": "EnvS3Bucket",
+    "ParameterValue": "qeoqeoapp-envs"
+  },
+  {
+    "ParameterKey": "KeyName",
+    "ParameterValue": "qeoqeoshop-ec2"
+  },
+  {
+    "ParameterKey": "CertificateArn",
+    "ParameterValue": "arn:aws:acm:ap-southeast-1:067783583101:certificate/d7157512-efbf-46b5-86a8-962a844ee2ef"
   }
 ]

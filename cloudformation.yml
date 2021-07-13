@@ -2,26 +2,401 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: CFN Template for a Laravel Sail ECS application.
 
 Parameters:
-  AppName:
+  EnvS3Bucket:
     Type: String
-    Description: This is your app name.
+    Description: Your S3 bucket name contains env file
+    Default: ''
+  CertificateArn:
+    Type: String
+    Description: Certificate ARN
+    Default: ''
+  KeyName:
+    Type: String
+    Description: SSH Key Name
+    Default: ''
+  ServiceTaskDesiredCount:
+    Type: Number
+    Description: Specifies the number of task to launch. 0 is for initial phrase.
+    Default: "0"
+  VpcAvailabilityZones:
+    Type: CommaDelimitedList
+    Description: >
+      Specifies a comma-separated list of 3 VPC Availability Zones for
+      the creation of new subnets. These zones must have the available status.
+    Default: "ap-southeast-1a,ap-southeast-1b"
+
+Conditions:
+  CreateHttpsListener: !Not [!Equals [!Ref CertificateArn, '']]
+  HasKeyName: !Not [!Equals [!Ref KeyName, '']]
 
 Resources:
   # ECR Private Repository
   EcrPrivateRepository:
     Type: AWS::ECR::Repository
     Properties:
-      RepositoryName: !Ref AppName
+      RepositoryName: !Sub "${AWS::StackName}"
       LifecyclePolicy:
         LifecyclePolicyText: |
           {"rules":[{"rulePriority":1,"description":"Remove untagged images","selection":{"tagStatus":"untagged","countType":"imageCountMoreThan","countNumber":1},"action":{"type":"expire"}}]}
 
   # ECS
-  # Cluster
+  ## Cluster
   EcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: !Sub "${AppName}-cluster"
+      ClusterName: !Sub "${AWS::StackName}-cluster"
       ClusterSettings:
         - Name: containerInsights
           Value: enabled
+
+  ## Task Definition
+  EcsTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${AWS::StackName}-task-definition"
+      ContainerDefinitions:
+        - Name: !Sub "${AWS::StackName}-container"
+          Image: !Join [ ":", [ !GetAtt EcrPrivateRepository.RepositoryUri, "main" ] ]
+          PortMappings:
+            - ContainerPort: 80
+              HostPort: 0
+              Protocol: tcp
+          EnvironmentFiles:
+            - Type: s3
+              Value: !Sub "arn:aws:s3:::${EnvS3Bucket}/${AWS::StackName}.env"
+      ExecutionRoleArn: !GetAtt EcsTaskDefinitionExecutionRole.Arn
+      Memory: "512"
+      RequiresCompatibilities:
+        - EC2
+
+  EcsTaskDefinitionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Description: "Allows ECS tasks to call AWS services on your behalf."
+      Policies:
+        - PolicyName: policy-ecs-task-execution
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecr:GetAuthorizationToken"
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:GetDownloadUrlForLayer"
+                  - "ecr:BatchGetImage"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+        - PolicyName: policy-s3-read-env
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                Resource: !Sub "arn:aws:s3:::${EnvS3Bucket}/${AWS::StackName}.env"
+        - PolicyName: policy-s3-read-env-bucket
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:GetBucketLocation"
+                Resource: !Sub "arn:aws:s3:::${EnvS3Bucket}"
+
+  ## Service
+  EcsService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub "${AWS::StackName}-service"
+      Cluster: !Ref EcsCluster
+      LaunchType: EC2
+      TaskDefinition: !Ref EcsTaskDefinition
+      DesiredCount: !Ref ServiceTaskDesiredCount
+      LoadBalancers:
+        - ContainerName: !Sub "${AWS::StackName}-container"
+          ContainerPort: 80
+          TargetGroupArn: !Ref TargetGroup
+      Role: !Ref EcsRole
+
+  EcsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: ec2-container-service-role
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  [
+                    "ec2:AuthorizeSecurityGroupIngress",
+                    "ec2:Describe*",
+                    "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+                    "elasticloadbalancing:DeregisterTargets",
+                    "elasticloadbalancing:Describe*",
+                    "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+                    "elasticloadbalancing:RegisterTargets",
+                  ]
+                Resource: "*"
+
+  # Application Load Balancer
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${AWS::StackName}-target-group"
+      VpcId: !Ref TheVpc
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+    DependsOn:
+      - ApplicationLoadBalancer
+
+  ApplicationLoadBalancerHttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  ApplicationLoadBalancerHttpsListener:
+    Condition: CreateHttpsListener
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${AWS::StackName}-alb"
+      SecurityGroups:
+        - !Ref AlbSecurityGroup
+      Subnets:
+        - !Ref Subnet1
+        - !Ref Subnet2
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${AWS::StackName} SG for ALB"
+      GroupDescription: Allow http, https to client host
+      VpcId: !Ref TheVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIpv6: ::/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIpv6: ::/0
+
+  # EC2 Instance
+  Ec2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${AWS::StackName} SG for EC2"
+      GroupDescription: Allow access from ALB
+      VpcId: !Ref TheVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+
+  EcsInstanceLc:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: "ami-039ec8fc674496137"
+      InstanceType: "t2.micro"
+      AssociatePublicIpAddress: true
+      IamInstanceProfile: !Ref Ec2InstanceProfile
+      KeyName: !If [ HasKeyName, !Ref KeyName, !Ref "AWS::NoValue" ]
+      SecurityGroups:
+        - !Ref Ec2SecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: "/dev/xvda"
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp2
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          echo ECS_CLUSTER=${AWS::StackName}-cluster >> /etc/ecs/ecs.config;echo ECS_BACKEND_HOST= >> /etc/ecs/ecs.config;
+
+  EcsInstanceAsg:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - !Ref Subnet1
+        - !Ref Subnet2
+      LaunchConfigurationName: !Ref EcsInstanceLc
+      MinSize: "0"
+      MaxSize: "1"
+      DesiredCapacity: "1"
+      TargetGroupARNs:
+        - !Ref TargetGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "ECS Instance - ${AWS::StackName}"
+          PropagateAtLaunch: true
+        - Key: Description
+          Value: "This instance is the part of the Auto Scaling group which was created through ECS Console"
+          PropagateAtLaunch: true
+
+  Ec2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: ecs-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  [
+                    "ec2:DescribeTags",
+                    "ecs:CreateCluster",
+                    "ecs:DeregisterContainerInstance",
+                    "ecs:DiscoverPollEndpoint",
+                    "ecs:Poll",
+                    "ecs:RegisterContainerInstance",
+                    "ecs:StartTelemetrySession",
+                    "ecs:UpdateContainerInstancesState",
+                    "ecs:Submit*",
+                    "ecr:GetAuthorizationToken",
+                    "ecr:BatchCheckLayerAvailability",
+                    "ecr:GetDownloadUrlForLayer",
+                    "ecr:BatchGetImage",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                  ]
+                Resource: "*"
+
+  Ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref Ec2Role
+
+  # VPC zone
+  TheVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub "VPC for ${AWS::StackName}"
+  Subnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TheVpc
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: !Select [ 0, !Ref VpcAvailabilityZones ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "Subnet 1 for ${AWS::StackName}"
+  Subnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref TheVpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [ 1, !Ref VpcAvailabilityZones ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "Subnet 2 for ${AWS::StackName}"
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "Internet Gateway for ${AWS::StackName}"
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref TheVpc
+      InternetGatewayId: !Ref InternetGateway
+  RouteViaIgw:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref TheVpc
+      Tags:
+        - Key: Name
+          Value: !Sub "Route Table for ${AWS::StackName}"
+  PublicRouteViaIgw:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteViaIgw
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PubSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet1
+      RouteTableId: !Ref RouteViaIgw
+  PubSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet2
+      RouteTableId: !Ref RouteViaIgw
+
+  # TODO: S3
+
+  # TODO: RDS
+
+  # TODO: Redis
+
+  # TODO: SQS
+
+Outputs:
+  AlbUrl:
+    Description: The main url for your app
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
