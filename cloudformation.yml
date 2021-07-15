@@ -74,7 +74,7 @@ Resources:
             - Type: s3
               Value: !Sub "arn:aws:s3:::${EnvS3Bucket}/${AWS::StackName}.env"
       ExecutionRoleArn: !GetAtt EcsTaskDefinitionExecutionRole.Arn
-      Memory: "512"
+      Memory: "128"
       RequiresCompatibilities:
         - EC2
 
@@ -432,12 +432,6 @@ Resources:
             Effect: Allow
             Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
             Principal: '*'
-            # Condition:
-            #   StringLike:
-            #     'aws:Referer':
-            #       - 'http://www.example.com/*'
-            #       - 'http://example.net/*'
-            # TODO: only get from specific domain
 
   # RDS
   RdsDbInstance:
@@ -509,3 +503,40 @@ Outputs:
   S3BucketName:
     Description: The S3 bucket name.
     Value: !Ref S3Bucket
+
+  # Export
+  EcsCluster:
+    Value: !Ref EcsCluster
+    Export:
+      Name: !Sub "${AWS::StackName}-EcsCluster"
+
+  EcsRole:
+    Value: !Ref EcsRole
+    Export:
+      Name: !Sub "${AWS::StackName}-EcsRole"
+
+  AlbSecurityGroup:
+    Value: !Ref AlbSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-AlbSecurityGroup"
+
+  TargetGroup:
+    Value: !Ref TargetGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-TargetGroup"
+
+  TheVpc:
+    Value: !Ref TheVpc
+    Export:
+      Name: !Sub "${AWS::StackName}-TheVpc"
+
+  Subnet1:
+    Value: !Ref Subnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-Subnet1"
+
+  Subnet2:
+    Value: !Ref Subnet2
+    Export:
+      Name: !Sub "${AWS::StackName}-Subnet2"
+

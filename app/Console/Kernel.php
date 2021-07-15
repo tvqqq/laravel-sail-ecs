@@ -25,12 +25,6 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         // $schedule->command('inspire')->hourly();
-
-        // TODO: test the schedule
-        $schedule->call(function () {
-            logger('This log is written on: ' . now());
-        })->everyMinute();
-        
     }
 
     /**
