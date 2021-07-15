@@ -52,6 +52,7 @@ RUN if [ "${XDEBUG}" = 'true' ]; then \
     && echo "xdebug.mode = debug" >> /etc/php/8.0/cli/conf.d/php-ext-xdebug.ini \
     && echo "xdebug.start_with_request = yes" >> /etc/php/8.0/cli/conf.d/php-ext-xdebug.ini \
     && echo "xdebug.client_host = host.docker.internal" >> /etc/php/8.0/cli/conf.d/php-ext-xdebug.ini \
+    && echo "xdebug.log_level = 0" >> /etc/php/8.0/cli/conf.d/php-ext-xdebug.ini \
     && apt-get -y autoremove \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* ;\
