@@ -55,7 +55,7 @@ Resources:
       ClusterName: !Sub "${AWS::StackName}-cluster"
       ClusterSettings:
         - Name: containerInsights
-          Value: enabled
+          Value: disabled
 
   ## Task Definition
   EcsTaskDefinition:
